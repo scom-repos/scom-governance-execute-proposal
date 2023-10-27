@@ -27,6 +27,7 @@ import { Constants, Wallet } from "@ijstech/eth-wallet";
 import { getFormSchema } from "./formSchema";
 import { execute, getVotingResult } from "./api";
 import { tokenStore } from "@scom/scom-token-list";
+import ScomGovernanceExecuteProposalFlowInitialSetup from "./flow/initialSetup";
 
 const Theme = Styles.Theme.ThemeVars;
 
@@ -588,5 +589,34 @@ export default class ScomGovernanceExecuteProposal extends Module {
                 </i-panel>
             </i-scom-dapp-container>
         )
+    }
+
+    async handleFlowStage(target: Control, stage: string, options: any) {
+        let widget;
+        if (stage === 'initialSetup') {
+            widget = new ScomGovernanceExecuteProposalFlowInitialSetup();
+            target.appendChild(widget);
+            await widget.ready();
+            widget.state = this.state;
+            await widget.handleFlowStage(target, stage, options);
+        } else {
+            widget = this;
+            if (!options.isWidgetConnected) {
+                target.appendChild(widget);
+                await widget.ready();
+            }
+            let properties = options.properties;
+            let tag = options.tag;
+            this.state.handleNextFlowStep = options.onNextStep;
+            this.state.handleAddTransactions = options.onAddTransactions;
+            this.state.handleJumpToStep = options.onJumpToStep;
+            this.state.handleUpdateStepStatus = options.onUpdateStepStatus;
+            await this.setData(properties);
+            if (tag) {
+                this.setTag(tag);
+            }
+        }
+
+        return { widget };
     }
 }
