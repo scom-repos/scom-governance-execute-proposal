@@ -448,11 +448,144 @@ define("@scom/scom-governance-execute-proposal/api.ts", ["require", "exports", "
     }
     exports.execute = execute;
 });
-define("@scom/scom-governance-execute-proposal", ["require", "exports", "@ijstech/components", "@scom/scom-governance-execute-proposal/store/index.ts", "@scom/scom-governance-execute-proposal/assets.ts", "@scom/scom-governance-execute-proposal/data.json.ts", "@ijstech/eth-wallet", "@scom/scom-governance-execute-proposal/formSchema.ts", "@scom/scom-governance-execute-proposal/api.ts", "@scom/scom-token-list"], function (require, exports, components_3, index_1, assets_1, data_json_1, eth_wallet_3, formSchema_1, api_1, scom_token_list_3) {
+define("@scom/scom-governance-execute-proposal/flow/initialSetup.tsx", ["require", "exports", "@ijstech/components", "@scom/scom-governance-execute-proposal/store/index.ts", "@ijstech/eth-wallet"], function (require, exports, components_3, index_1, eth_wallet_3) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     const Theme = components_3.Styles.Theme.ThemeVars;
-    let ScomGovernanceExecuteProposal = class ScomGovernanceExecuteProposal extends components_3.Module {
+    let ScomGovernanceExecuteProposalFlowInitialSetup = class ScomGovernanceExecuteProposalFlowInitialSetup extends components_3.Module {
+        constructor() {
+            super(...arguments);
+            this.walletEvents = [];
+        }
+        get state() {
+            return this._state;
+        }
+        set state(value) {
+            this._state = value;
+        }
+        get rpcWallet() {
+            return this.state.getRpcWallet();
+        }
+        get chainId() {
+            return this.executionProperties.chainId || this.executionProperties.defaultChainId;
+        }
+        async resetRpcWallet() {
+            await this.state.initRpcWallet(this.chainId);
+        }
+        async setData(value) {
+            this.executionProperties = value.executionProperties;
+            this.tokenRequirements = value.tokenRequirements;
+            await this.resetRpcWallet();
+            await this.initializeWidgetConfig();
+        }
+        async initWallet() {
+            try {
+                const rpcWallet = this.rpcWallet;
+                await rpcWallet.init();
+            }
+            catch (err) {
+                console.log(err);
+            }
+        }
+        async initializeWidgetConfig() {
+            const connected = (0, index_1.isClientWalletConnected)();
+            this.updateConnectStatus(connected);
+            await this.initWallet();
+        }
+        async connectWallet() {
+            if (!(0, index_1.isClientWalletConnected)()) {
+                if (this.mdWallet) {
+                    await components_3.application.loadPackage('@scom/scom-wallet-modal', '*');
+                    this.mdWallet.networks = this.executionProperties.networks;
+                    this.mdWallet.wallets = this.executionProperties.wallets;
+                    this.mdWallet.showModal();
+                }
+            }
+        }
+        updateConnectStatus(connected) {
+            if (connected) {
+                this.lblConnectedStatus.caption = 'Connected with ' + eth_wallet_3.Wallet.getClientInstance().address;
+                this.btnConnectWallet.visible = false;
+            }
+            else {
+                this.lblConnectedStatus.caption = 'Please connect your wallet first';
+                this.btnConnectWallet.visible = true;
+            }
+        }
+        registerEvents() {
+            let clientWallets = eth_wallet_3.Wallet.getClientInstance();
+            this.walletEvents.push(clientWallets.registerWalletEvent(this, eth_wallet_3.Constants.ClientWalletEvent.AccountsChanged, async (payload) => {
+                const { account } = payload;
+                let connected = !!account;
+                this.updateConnectStatus(connected);
+            }));
+        }
+        onHide() {
+            let clientWallet = eth_wallet_3.Wallet.getClientInstance();
+            for (let event of this.walletEvents) {
+                clientWallet.unregisterWalletEvent(event);
+            }
+            this.walletEvents = [];
+        }
+        init() {
+            super.init();
+            this.registerEvents();
+        }
+        async handleClickStart() {
+            this.executionProperties.votingAddress = this.edtVotingAddress.value || "";
+            if (this.state.handleUpdateStepStatus)
+                this.state.handleUpdateStepStatus({
+                    status: "Completed",
+                    color: Theme.colors.success.main
+                });
+            if (this.state.handleNextFlowStep)
+                this.state.handleNextFlowStep({
+                    isInitialSetup: true,
+                    tokenRequirements: this.tokenRequirements,
+                    executionProperties: this.executionProperties
+                });
+        }
+        render() {
+            return (this.$render("i-vstack", { gap: "1rem", padding: { top: 10, bottom: 10, left: 20, right: 20 } },
+                this.$render("i-label", { caption: "Get Ready to Vote" }),
+                this.$render("i-vstack", { gap: '1rem' },
+                    this.$render("i-label", { id: "lblConnectedStatus" }),
+                    this.$render("i-hstack", null,
+                        this.$render("i-button", { id: "btnConnectWallet", caption: 'Connect Wallet', font: { color: Theme.colors.primary.contrastText }, padding: { top: '0.25rem', bottom: '0.25rem', left: '0.75rem', right: '0.75rem' }, onClick: this.connectWallet }))),
+                this.$render("i-label", { caption: "Enter voting address" }),
+                this.$render("i-hstack", { width: "50%", verticalAlignment: "center" },
+                    this.$render("i-input", { id: "edtVotingAddress", height: 32, width: "100%", border: { radius: 6 }, font: { size: '1rem' } })),
+                this.$render("i-hstack", { horizontalAlignment: 'center' },
+                    this.$render("i-button", { id: "btnStart", caption: "Start", padding: { top: '0.25rem', bottom: '0.25rem', left: '0.75rem', right: '0.75rem' }, font: { color: Theme.colors.primary.contrastText, size: '1.5rem' }, onClick: this.handleClickStart })),
+                this.$render("i-scom-wallet-modal", { id: "mdWallet", wallets: [] })));
+        }
+        async handleFlowStage(target, stage, options) {
+            let widget = this;
+            if (!options.isWidgetConnected) {
+                let properties = options.properties;
+                let tokenRequirements = options.tokenRequirements;
+                this.state.handleNextFlowStep = options.onNextStep;
+                this.state.handleAddTransactions = options.onAddTransactions;
+                this.state.handleJumpToStep = options.onJumpToStep;
+                this.state.handleUpdateStepStatus = options.onUpdateStepStatus;
+                await this.setData({
+                    executionProperties: properties,
+                    tokenRequirements
+                });
+            }
+            return { widget };
+        }
+    };
+    ScomGovernanceExecuteProposalFlowInitialSetup = __decorate([
+        (0, components_3.customElements)('i-scom-governance-execute-proposal-flow-initial-setup')
+    ], ScomGovernanceExecuteProposalFlowInitialSetup);
+    exports.default = ScomGovernanceExecuteProposalFlowInitialSetup;
+});
+define("@scom/scom-governance-execute-proposal", ["require", "exports", "@ijstech/components", "@scom/scom-governance-execute-proposal/store/index.ts", "@scom/scom-governance-execute-proposal/assets.ts", "@scom/scom-governance-execute-proposal/data.json.ts", "@ijstech/eth-wallet", "@scom/scom-governance-execute-proposal/formSchema.ts", "@scom/scom-governance-execute-proposal/api.ts", "@scom/scom-token-list", "@scom/scom-governance-execute-proposal/flow/initialSetup.tsx"], function (require, exports, components_4, index_2, assets_1, data_json_1, eth_wallet_4, formSchema_1, api_1, scom_token_list_3, initialSetup_1) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    const Theme = components_4.Styles.Theme.ThemeVars;
+    let ScomGovernanceExecuteProposal = class ScomGovernanceExecuteProposal extends components_4.Module {
         get chainId() {
             return this.state.getChainId();
         }
@@ -492,10 +625,9 @@ define("@scom/scom-governance-execute-proposal", ["require", "exports", "@ijstec
                 networks: []
             };
             this.tag = {};
-            this.isCanExecute = false;
             this.initWallet = async () => {
                 try {
-                    await eth_wallet_3.Wallet.getClientInstance().init();
+                    await eth_wallet_4.Wallet.getClientInstance().init();
                     const rpcWallet = this.state.getRpcWallet();
                     await rpcWallet.init();
                 }
@@ -509,15 +641,6 @@ define("@scom/scom-governance-execute-proposal", ["require", "exports", "@ijstec
                     scom_token_list_3.tokenStore.updateTokenMapData(chainId);
                     await this.initWallet();
                     await this.updateUI();
-                    const connected = (0, index_1.isClientWalletConnected)();
-                    if (!connected || !this.state.isRpcWalletConnected()) {
-                        this.btnExecute.caption = connected ? "Switch Network" : "Connect Wallet";
-                        this.btnExecute.enabled = true;
-                    }
-                    else {
-                        this.btnExecute.caption = "Execute";
-                        this.btnExecute.enabled = this.isCanExecute;
-                    }
                 });
             };
             this.showResultMessage = (status, content) => {
@@ -534,9 +657,9 @@ define("@scom/scom-governance-execute-proposal", ["require", "exports", "@ijstec
                 this.txStatusModal.showModal();
             };
             this.connectWallet = async () => {
-                if (!(0, index_1.isClientWalletConnected)()) {
+                if (!(0, index_2.isClientWalletConnected)()) {
                     if (this.mdWallet) {
-                        await components_3.application.loadPackage('@scom/scom-wallet-modal', '*');
+                        await components_4.application.loadPackage('@scom/scom-wallet-modal', '*');
                         this.mdWallet.networks = this.networks;
                         this.mdWallet.wallets = this.wallets;
                         this.mdWallet.showModal();
@@ -544,11 +667,11 @@ define("@scom/scom-governance-execute-proposal", ["require", "exports", "@ijstec
                     return;
                 }
                 if (!this.state.isRpcWalletConnected()) {
-                    const clientWallet = eth_wallet_3.Wallet.getClientInstance();
+                    const clientWallet = eth_wallet_4.Wallet.getClientInstance();
                     await clientWallet.switchNetwork(this.chainId);
                 }
             };
-            this.state = new index_1.State(data_json_1.default);
+            this.state = new index_2.State(data_json_1.default);
         }
         removeRpcWalletEvents() {
             const rpcWallet = this.state.getRpcWallet();
@@ -745,10 +868,12 @@ define("@scom/scom-governance-execute-proposal", ["require", "exports", "@ijstec
             this.removeRpcWalletEvents();
             const rpcWalletId = this.state.initRpcWallet(this.defaultChainId);
             const rpcWallet = this.state.getRpcWallet();
-            const chainChangedEvent = rpcWallet.registerWalletEvent(this, eth_wallet_3.Constants.RpcWalletEvent.ChainChanged, async (chainId) => {
+            const chainChangedEvent = rpcWallet.registerWalletEvent(this, eth_wallet_4.Constants.RpcWalletEvent.ChainChanged, async (chainId) => {
+                if (this.executeTimeout)
+                    clearTimeout(this.executeTimeout);
                 this.refreshUI();
             });
-            const connectedEvent = rpcWallet.registerWalletEvent(this, eth_wallet_3.Constants.RpcWalletEvent.Connected, async (connected) => {
+            const connectedEvent = rpcWallet.registerWalletEvent(this, eth_wallet_4.Constants.RpcWalletEvent.Connected, async (connected) => {
                 this.refreshUI();
             });
             const data = {
@@ -795,36 +920,53 @@ define("@scom/scom-governance-execute-proposal", ["require", "exports", "@ijstec
         formatDate(value) {
             if (!value)
                 return '';
-            return (0, components_3.moment)(value).format('MMM. DD, YYYY') + ' at ' + (0, components_3.moment)(value).format('HH:mm');
+            return (0, components_4.moment)(value).format('MMM. DD, YYYY') + ' at ' + (0, components_4.moment)(value).format('HH:mm');
         }
         async updateUI() {
             this.lblAddress.caption = this.votingAddress;
             const votingResult = await (0, api_1.getVotingResult)(this.state, this.votingAddress);
+            let isCanExecute = false;
             if (votingResult) {
                 const proposalType = votingResult.hasOwnProperty('executeParam') ? 'Executive' : 'Poll';
                 const executeDelaySeconds = votingResult.executeDelay.toNumber();
-                const executeDelayDatetime = (0, components_3.moment)(votingResult.endTime)
+                const executeDelayDatetime = (0, components_4.moment)(votingResult.endTime)
                     .add(executeDelaySeconds, 'seconds')
                     .toDate();
                 this.lblTitle.caption = proposalType == 'Executive' ? votingResult.title : votingResult.name;
                 this.lblVoteStartTime.caption = this.formatDate(votingResult.voteStartTime);
                 this.lblVoteEndTime.caption = this.formatDate(votingResult.endTime);
                 this.lblExecuteDeplay.caption = this.formatDate(executeDelayDatetime);
+                let diff = executeDelayDatetime.getTime() - Date.now();
+                if (diff > 0 && diff < 86400000) {
+                    if (this.executeTimeout)
+                        clearTimeout(this.executeTimeout);
+                    this.executeTimeout = setTimeout(() => {
+                        this.updateUI();
+                    }, diff);
+                }
                 const { status, color } = this.getStepStatusTextAndColor(votingResult?.status);
                 this.lblStatus.caption = status;
                 this.lblStatus.font = { size: '0.875rem', bold: true, color };
-                this.isCanExecute = votingResult.status == "waiting_execution";
+                isCanExecute = votingResult.status == "waiting_execution";
             }
             else {
                 this.lblVoteStartTime.caption = "";
                 this.lblVoteEndTime.caption = "";
                 this.lblExecuteDeplay.caption = "";
                 this.lblStatus.caption = "";
-                this.isCanExecute = false;
+            }
+            const connected = (0, index_2.isClientWalletConnected)();
+            if (!connected || !this.state.isRpcWalletConnected()) {
+                this.btnExecute.caption = connected ? "Switch Network" : "Connect Wallet";
+                this.btnExecute.enabled = true;
+            }
+            else {
+                this.btnExecute.caption = "Execute";
+                this.btnExecute.enabled = isCanExecute;
             }
         }
         async onExecuteProposal() {
-            if (!(0, index_1.isClientWalletConnected)() || !this.state.isRpcWalletConnected()) {
+            if (!(0, index_2.isClientWalletConnected)() || !this.state.isRpcWalletConnected()) {
                 this.connectWallet();
                 return;
             }
@@ -890,22 +1032,22 @@ define("@scom/scom-governance-execute-proposal", ["require", "exports", "@ijstec
                         this.$render("i-vstack", { width: "100%", height: "100%", maxWidth: 800, padding: { top: "1rem", bottom: "1rem", left: "1rem", right: "1rem" }, margin: { left: "auto", right: "auto" }, gap: "1rem" },
                             this.$render("i-hstack", { width: "100%", horizontalAlignment: "center", margin: { top: "1rem", bottom: "1rem" } },
                                 this.$render("i-label", { caption: "Execute Proposal", font: { size: '1.25rem', weight: 700, color: Theme.colors.primary.main }, margin: { bottom: '2rem' } })),
-                            this.$render("i-hstack", { verticalAlignment: "center", gap: "0.5rem" },
+                            this.$render("i-hstack", { verticalAlignment: "center", horizontalAlignment: "space-between", gap: "0.5rem" },
                                 this.$render("i-label", { caption: "Title: ", font: { size: '0.875rem' } }),
                                 this.$render("i-label", { id: "lblTitle", font: { size: '0.875rem', bold: true } })),
-                            this.$render("i-hstack", { verticalAlignment: "center", gap: "0.5rem" },
+                            this.$render("i-hstack", { verticalAlignment: "center", horizontalAlignment: "space-between", gap: "0.5rem" },
                                 this.$render("i-label", { caption: "Address: ", font: { size: '0.875rem' } }),
                                 this.$render("i-label", { id: "lblAddress", font: { size: '0.875rem', bold: true } })),
-                            this.$render("i-hstack", { verticalAlignment: "center", gap: "0.5rem" },
+                            this.$render("i-hstack", { verticalAlignment: "center", horizontalAlignment: "space-between", gap: "0.5rem" },
                                 this.$render("i-label", { caption: "Date Created: ", font: { size: '0.875rem' } }),
                                 this.$render("i-label", { id: "lblVoteStartTime", font: { size: '0.875rem', bold: true } })),
-                            this.$render("i-hstack", { verticalAlignment: "center", gap: "0.5rem" },
+                            this.$render("i-hstack", { verticalAlignment: "center", horizontalAlignment: "space-between", gap: "0.5rem" },
                                 this.$render("i-label", { caption: "Vote Ends: ", font: { size: '0.875rem' } }),
                                 this.$render("i-label", { id: "lblVoteEndTime", font: { size: '0.875rem', bold: true } })),
-                            this.$render("i-hstack", { verticalAlignment: "center", gap: "0.5rem" },
+                            this.$render("i-hstack", { verticalAlignment: "center", horizontalAlignment: "space-between", gap: "0.5rem" },
                                 this.$render("i-label", { caption: "Execute Delay: ", font: { size: '0.875rem' } }),
                                 this.$render("i-label", { id: "lblExecuteDeplay", font: { size: '0.875rem', bold: true } })),
-                            this.$render("i-hstack", { verticalAlignment: "center", gap: "0.5rem" },
+                            this.$render("i-hstack", { verticalAlignment: "center", horizontalAlignment: "space-between", gap: "0.5rem" },
                                 this.$render("i-label", { caption: "Status: ", font: { size: '0.875rem' } }),
                                 this.$render("i-label", { id: "lblStatus", font: { size: '0.875rem', bold: true } })),
                             this.$render("i-hstack", { horizontalAlignment: "center", verticalAlignment: "center", margin: { top: "1rem" } },
@@ -913,9 +1055,37 @@ define("@scom/scom-governance-execute-proposal", ["require", "exports", "@ijstec
                     this.$render("i-scom-tx-status-modal", { id: "txStatusModal" }),
                     this.$render("i-scom-wallet-modal", { id: "mdWallet", wallets: [] }))));
         }
+        async handleFlowStage(target, stage, options) {
+            let widget;
+            if (stage === 'initialSetup') {
+                widget = new initialSetup_1.default();
+                target.appendChild(widget);
+                await widget.ready();
+                widget.state = this.state;
+                await widget.handleFlowStage(target, stage, options);
+            }
+            else {
+                widget = this;
+                if (!options.isWidgetConnected) {
+                    target.appendChild(widget);
+                    await widget.ready();
+                }
+                let properties = options.properties;
+                let tag = options.tag;
+                this.state.handleNextFlowStep = options.onNextStep;
+                this.state.handleAddTransactions = options.onAddTransactions;
+                this.state.handleJumpToStep = options.onJumpToStep;
+                this.state.handleUpdateStepStatus = options.onUpdateStepStatus;
+                await this.setData(properties);
+                if (tag) {
+                    this.setTag(tag);
+                }
+            }
+            return { widget };
+        }
     };
     ScomGovernanceExecuteProposal = __decorate([
-        (0, components_3.customElements)('i-scom-governance-execute-proposal')
+        (0, components_4.customElements)('i-scom-governance-execute-proposal')
     ], ScomGovernanceExecuteProposal);
     exports.default = ScomGovernanceExecuteProposal;
 });

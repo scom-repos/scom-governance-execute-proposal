@@ -71,7 +71,7 @@ export default class ScomGovernanceExecuteProposal extends Module {
         networks: []
     };
     tag: any = {};
-    private isCanExecute: boolean = false;
+    private executeTimeout: any;
 
     private get chainId() {
         return this.state.getChainId();
@@ -324,6 +324,7 @@ export default class ScomGovernanceExecuteProposal extends Module {
         const rpcWalletId = this.state.initRpcWallet(this.defaultChainId);
         const rpcWallet = this.state.getRpcWallet();
         const chainChangedEvent = rpcWallet.registerWalletEvent(this, Constants.RpcWalletEvent.ChainChanged, async (chainId: number) => {
+            if (this.executeTimeout) clearTimeout(this.executeTimeout);
             this.refreshUI();
         });
         const connectedEvent = rpcWallet.registerWalletEvent(this, Constants.RpcWalletEvent.Connected, async (connected: boolean) => {
@@ -359,14 +360,6 @@ export default class ScomGovernanceExecuteProposal extends Module {
             tokenStore.updateTokenMapData(chainId);
             await this.initWallet();
             await this.updateUI();
-            const connected = isClientWalletConnected();
-            if (!connected || !this.state.isRpcWalletConnected()) {
-                this.btnExecute.caption = connected ? "Switch Network" : "Connect Wallet";
-                this.btnExecute.enabled = true;
-            } else {
-                this.btnExecute.caption = "Execute";
-                this.btnExecute.enabled = this.isCanExecute;
-            }
         });
     }
 
@@ -407,6 +400,7 @@ export default class ScomGovernanceExecuteProposal extends Module {
     private async updateUI() {
         this.lblAddress.caption = this.votingAddress;
         const votingResult = await getVotingResult(this.state, this.votingAddress);
+        let isCanExecute = false;
         if (votingResult) {
             const proposalType = votingResult.hasOwnProperty('executeParam') ? 'Executive' : 'Poll';
             const executeDelaySeconds = votingResult.executeDelay.toNumber();
@@ -417,16 +411,30 @@ export default class ScomGovernanceExecuteProposal extends Module {
             this.lblVoteStartTime.caption = this.formatDate(votingResult.voteStartTime);
             this.lblVoteEndTime.caption = this.formatDate(votingResult.endTime);
             this.lblExecuteDeplay.caption = this.formatDate(executeDelayDatetime);
+            let diff = executeDelayDatetime.getTime() - Date.now();
+            if (diff > 0 && diff < 86400000) {
+                if (this.executeTimeout) clearTimeout(this.executeTimeout);
+                this.executeTimeout = setTimeout(() => {
+                    this.updateUI();
+                }, diff)
+            }
             const { status, color } = this.getStepStatusTextAndColor(votingResult?.status);
             this.lblStatus.caption = status;
             this.lblStatus.font = { size: '0.875rem', bold: true, color };
-            this.isCanExecute = votingResult.status == "waiting_execution";
+            isCanExecute = votingResult.status == "waiting_execution";
         } else {
             this.lblVoteStartTime.caption = "";
             this.lblVoteEndTime.caption = "";
             this.lblExecuteDeplay.caption = "";
             this.lblStatus.caption = "";
-            this.isCanExecute = false;
+        }
+        const connected = isClientWalletConnected();
+        if (!connected || !this.state.isRpcWalletConnected()) {
+            this.btnExecute.caption = connected ? "Switch Network" : "Connect Wallet";
+            this.btnExecute.enabled = true;
+        } else {
+            this.btnExecute.caption = "Execute";
+            this.btnExecute.enabled = isCanExecute;
         }
     }
 
@@ -544,27 +552,27 @@ export default class ScomGovernanceExecuteProposal extends Module {
                             <i-hstack width="100%" horizontalAlignment="center" margin={{ top: "1rem", bottom: "1rem" }}>
                                 <i-label caption="Execute Proposal" font={{ size: '1.25rem', weight: 700, color: Theme.colors.primary.main }} margin={{ bottom: '2rem' }}></i-label>
                             </i-hstack>
-                            <i-hstack verticalAlignment="center" gap="0.5rem">
+                            <i-hstack verticalAlignment="center" horizontalAlignment="space-between" gap="0.5rem">
                                 <i-label caption="Title: " font={{ size: '0.875rem' }}></i-label>
                                 <i-label id="lblTitle" font={{ size: '0.875rem', bold: true }}></i-label>
                             </i-hstack>
-                            <i-hstack verticalAlignment="center" gap="0.5rem">
+                            <i-hstack verticalAlignment="center" horizontalAlignment="space-between" gap="0.5rem">
                                 <i-label caption="Address: " font={{ size: '0.875rem' }}></i-label>
                                 <i-label id="lblAddress" font={{ size: '0.875rem', bold: true }}></i-label>
                             </i-hstack>
-                            <i-hstack verticalAlignment="center" gap="0.5rem">
+                            <i-hstack verticalAlignment="center" horizontalAlignment="space-between" gap="0.5rem">
                                 <i-label caption="Date Created: " font={{ size: '0.875rem' }}></i-label>
                                 <i-label id="lblVoteStartTime" font={{ size: '0.875rem', bold: true }}></i-label>
                             </i-hstack>
-                            <i-hstack verticalAlignment="center" gap="0.5rem">
+                            <i-hstack verticalAlignment="center" horizontalAlignment="space-between" gap="0.5rem">
                                 <i-label caption="Vote Ends: " font={{ size: '0.875rem' }}></i-label>
                                 <i-label id="lblVoteEndTime" font={{ size: '0.875rem', bold: true }}></i-label>
                             </i-hstack>
-                            <i-hstack verticalAlignment="center" gap="0.5rem">
+                            <i-hstack verticalAlignment="center" horizontalAlignment="space-between" gap="0.5rem">
                                 <i-label caption="Execute Delay: " font={{ size: '0.875rem' }}></i-label>
                                 <i-label id="lblExecuteDeplay" font={{ size: '0.875rem', bold: true }}></i-label>
                             </i-hstack>
-                            <i-hstack verticalAlignment="center" gap="0.5rem">
+                            <i-hstack verticalAlignment="center" horizontalAlignment="space-between" gap="0.5rem">
                                 <i-label caption="Status: " font={{ size: '0.875rem' }}></i-label>
                                 <i-label id="lblStatus" font={{ size: '0.875rem', bold: true }}></i-label>
                             </i-hstack>

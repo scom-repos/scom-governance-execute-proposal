@@ -183,9 +183,52 @@ declare module "@scom/scom-governance-execute-proposal/api.ts" {
     export function getVotingResult(state: State, votingAddress: string): Promise<any>;
     export function execute(votingAddress: string): Promise<import("@ijstech/eth-contract").TransactionReceipt>;
 }
+/// <amd-module name="@scom/scom-governance-execute-proposal/flow/initialSetup.tsx" />
+declare module "@scom/scom-governance-execute-proposal/flow/initialSetup.tsx" {
+    import { Control, ControlElement, Module } from "@ijstech/components";
+    import { State } from "@scom/scom-governance-execute-proposal/store/index.ts";
+    interface ScomGovernanceExecuteProposalFlowInitialSetupElement extends ControlElement {
+        data?: any;
+    }
+    global {
+        namespace JSX {
+            interface IntrinsicElements {
+                ['i-scom-governance-execute-proposal-flow-initial-setup']: ScomGovernanceExecuteProposalFlowInitialSetupElement;
+            }
+        }
+    }
+    export default class ScomGovernanceExecuteProposalFlowInitialSetup extends Module {
+        private lblConnectedStatus;
+        private btnConnectWallet;
+        private edtVotingAddress;
+        private mdWallet;
+        private _state;
+        private tokenRequirements;
+        private executionProperties;
+        private walletEvents;
+        get state(): State;
+        set state(value: State);
+        private get rpcWallet();
+        private get chainId();
+        private resetRpcWallet;
+        setData(value: any): Promise<void>;
+        private initWallet;
+        private initializeWidgetConfig;
+        private connectWallet;
+        private updateConnectStatus;
+        private registerEvents;
+        onHide(): void;
+        init(): void;
+        private handleClickStart;
+        render(): any;
+        handleFlowStage(target: Control, stage: string, options: any): Promise<{
+            widget: ScomGovernanceExecuteProposalFlowInitialSetup;
+        }>;
+    }
+}
 /// <amd-module name="@scom/scom-governance-execute-proposal" />
 declare module "@scom/scom-governance-execute-proposal" {
-    import { Container, ControlElement, Module } from "@ijstech/components";
+    import { Container, Control, ControlElement, Module } from "@ijstech/components";
     import { INetworkConfig } from "@scom/scom-network-picker";
     import { IWalletPlugin } from "@scom/scom-wallet-modal";
     import { IGovernanceExecuteProposal } from "@scom/scom-governance-execute-proposal/interface.ts";
@@ -220,7 +263,7 @@ declare module "@scom/scom-governance-execute-proposal" {
         private state;
         private _data;
         tag: any;
-        private isCanExecute;
+        private executeTimeout;
         private get chainId();
         get defaultChainId(): number;
         set defaultChainId(value: number);
@@ -292,5 +335,8 @@ declare module "@scom/scom-governance-execute-proposal" {
         private connectWallet;
         private onExecuteProposal;
         render(): any;
+        handleFlowStage(target: Control, stage: string, options: any): Promise<{
+            widget: any;
+        }>;
     }
 }
