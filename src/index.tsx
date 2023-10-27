@@ -372,7 +372,7 @@ export default class ScomGovernanceExecuteProposal extends Module {
                 color = Theme.colors.error.main;
                 break;
             case "in_progress":
-                status = "Waiting to vote";
+                status = "Waiting to Vote";
                 color = Theme.colors.warning.main;
                 break;
             case "not_passed":
@@ -381,7 +381,7 @@ export default class ScomGovernanceExecuteProposal extends Module {
                 break;
             case "waiting_execution_delay":
             case "waiting_execution":
-                status = "Pending for execution";
+                status = "Pending Execution";
                 color = Theme.colors.warning.main;
                 break;
             case "executed":
