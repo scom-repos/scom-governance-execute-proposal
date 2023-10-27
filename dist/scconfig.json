@@ -1,0 +1,17 @@
+{
+    "name": "@scom/scom-governance-execute-proposal",
+    "type": "widget",
+    "version": "0.1.2",
+    "dependencies": [
+        "@ijstech/components",
+        "@scom/scom-network-list",
+        "@scom/scom-multicall",
+        "@scom/scom-dapp-container",
+        "@scom/scom-network-picker",
+        "@scom/scom-wallet-modal",
+        "@scom/scom-tx-status-modal",
+        "@ijstech/eth-wallet",
+        "@scom/scom-token-list",
+        "@scom/oswap-openswap-contract"
+    ]
+}
