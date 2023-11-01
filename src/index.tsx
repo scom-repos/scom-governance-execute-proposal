@@ -399,7 +399,7 @@ export default class ScomGovernanceExecuteProposal extends Module {
 
     private async updateUI() {
         this.lblAddress.caption = this.votingAddress;
-        const votingResult = await getVotingResult(this.state, this.votingAddress);
+        const votingResult = await getVotingResult(this.state, this.votingAddress, this._data.customTokens);
         let isCanExecute = false;
         if (votingResult) {
             const proposalType = votingResult.hasOwnProperty('executeParam') ? 'Executive' : 'Poll';
@@ -512,6 +512,7 @@ export default class ScomGovernanceExecuteProposal extends Module {
                         executionProperties: {
                             fromToken: this._data.fromToken || '',
                             toToken: this._data.toToken || '',
+                            customTokens: this._data.customTokens,
                             isFlow: true
                         }
                     })

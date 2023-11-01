@@ -338,7 +338,7 @@ define("@scom/scom-governance-execute-proposal/api.ts", ["require", "exports", "
         }
         return executeParam;
     }
-    function getVotingTitle(state, result) {
+    function getVotingTitle(state, result, customTokens) {
         let title;
         if (!result.executeParam)
             return title;
@@ -346,6 +346,15 @@ define("@scom/scom-governance-execute-proposal/api.ts", ["require", "exports", "
         const token1 = result.executeParam.token1;
         const chainId = state.getChainId();
         let tokenMap = scom_token_list_2.tokenStore.getTokenMapByChainId(chainId) || {};
+        if (customTokens?.[chainId]?.length) {
+            for (let i = 0; i < customTokens[chainId].length; i++) {
+                let tokenItem = customTokens[chainId][i];
+                if (tokenItem.address)
+                    tokenMap[tokenItem.address.toLowerCase()] = tokenItem;
+                else
+                    tokenMap[tokenItem.symbol] = tokenItem;
+            }
+        }
         let symbol0 = token0 ? tokenMap[token0.toLowerCase()]?.symbol ?? '' : '';
         let symbol1 = token1 ? tokenMap[token1.toLowerCase()]?.symbol ?? '' : '';
         switch (result.executeParam.cmd) {
@@ -358,7 +367,7 @@ define("@scom/scom-governance-execute-proposal/api.ts", ["require", "exports", "
         }
         return title;
     }
-    function parseVotingParams(state, params) {
+    function parseVotingParams(state, params, customTokens) {
         let result = {
             executor: params.executor,
             address: '',
@@ -420,12 +429,12 @@ define("@scom/scom-governance-execute-proposal/api.ts", ["require", "exports", "
             }
             result.executeParam = parseVotingExecuteParam(params);
         }
-        let title = getVotingTitle(state, result);
+        let title = getVotingTitle(state, result, customTokens);
         if (title)
             result.title = title;
         return result;
     }
-    async function getVotingResult(state, votingAddress) {
+    async function getVotingResult(state, votingAddress, customTokens) {
         if (!votingAddress)
             return;
         let result;
@@ -433,7 +442,7 @@ define("@scom/scom-governance-execute-proposal/api.ts", ["require", "exports", "
             const wallet = state.getRpcWallet();
             const votingContract = new oswap_openswap_contract_1.Contracts.OAXDEX_VotingContract(wallet, votingAddress);
             const getParams = await votingContract.getParams();
-            result = parseVotingParams(state, getParams);
+            result = parseVotingParams(state, getParams, customTokens);
             result.address = votingAddress;
         }
         catch (err) { }
@@ -924,7 +933,7 @@ define("@scom/scom-governance-execute-proposal", ["require", "exports", "@ijstec
         }
         async updateUI() {
             this.lblAddress.caption = this.votingAddress;
-            const votingResult = await (0, api_1.getVotingResult)(this.state, this.votingAddress);
+            const votingResult = await (0, api_1.getVotingResult)(this.state, this.votingAddress, this._data.customTokens);
             let isCanExecute = false;
             if (votingResult) {
                 const proposalType = votingResult.hasOwnProperty('executeParam') ? 'Executive' : 'Poll';
@@ -1009,6 +1018,7 @@ define("@scom/scom-governance-execute-proposal", ["require", "exports", "@ijstec
                             executionProperties: {
                                 fromToken: this._data.fromToken || '',
                                 toToken: this._data.toToken || '',
+                                customTokens: this._data.customTokens,
                                 isFlow: true
                             }
                         });

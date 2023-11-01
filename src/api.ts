@@ -1,6 +1,6 @@
 import { BigNumber, Utils, Wallet } from "@ijstech/eth-wallet";
 import { Contracts } from "@scom/oswap-openswap-contract";
-import { tokenStore } from "@scom/scom-token-list";
+import { ITokenObject, tokenStore } from "@scom/scom-token-list";
 import { IExecuteParam, IVotingParams, IVotingResult } from "./interface";
 import { State } from "./store/index";
 
@@ -36,13 +36,22 @@ function parseVotingExecuteParam(params: IVotingParams) {
     return executeParam;
 }
 
-function getVotingTitle(state: State, result: any) {
+function getVotingTitle(state: State, result: any, customTokens?: Record<number, ITokenObject[]>) {
     let title: string;
     if (!result.executeParam) return title;
     const token0 = result.executeParam.token0;
     const token1 = result.executeParam.token1;
     const chainId = state.getChainId();
     let tokenMap = tokenStore.getTokenMapByChainId(chainId) || {};
+    if (customTokens?.[chainId]?.length) {
+        for (let i = 0; i < customTokens[chainId].length; i++) {
+            let tokenItem = customTokens[chainId][i];
+            if (tokenItem.address)
+                tokenMap[tokenItem.address.toLowerCase()] = tokenItem;
+            else
+                tokenMap[tokenItem.symbol] = tokenItem;
+        }
+    }
     let symbol0 = token0 ? tokenMap[token0.toLowerCase()]?.symbol ?? '' : '';
     let symbol1 = token1 ? tokenMap[token1.toLowerCase()]?.symbol ?? '' : '';
     switch (result.executeParam.cmd) {
@@ -56,7 +65,7 @@ function getVotingTitle(state: State, result: any) {
     return title;
 }
 
-function parseVotingParams(state: State, params: IVotingParams) {
+function parseVotingParams(state: State, params: IVotingParams, customTokens?: Record<number, ITokenObject[]>) {
     let result: IVotingResult = {
         executor: params.executor,
         address: '',
@@ -116,20 +125,20 @@ function parseVotingParams(state: State, params: IVotingParams) {
         }
         result.executeParam = parseVotingExecuteParam(params);
     }
-    let title = getVotingTitle(state, result);
+    let title = getVotingTitle(state, result, customTokens);
     if (title) result.title = title;
 
     return result;
 }
 
-export async function getVotingResult(state: State, votingAddress: string) {
+export async function getVotingResult(state: State, votingAddress: string, customTokens?: Record<number, ITokenObject[]>) {
     if (!votingAddress) return;
     let result;
     try {
         const wallet = state.getRpcWallet();
         const votingContract = new Contracts.OAXDEX_VotingContract(wallet, votingAddress);
         const getParams = await votingContract.getParams();
-        result = parseVotingParams(state, getParams);
+        result = parseVotingParams(state, getParams, customTokens);
         result.address = votingAddress;
     } catch (err) {}
     return result;

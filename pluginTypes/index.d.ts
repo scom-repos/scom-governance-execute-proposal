@@ -1,10 +1,12 @@
 /// <reference path="@scom/scom-dapp-container/@ijstech/eth-wallet/index.d.ts" />
 /// <reference path="@ijstech/eth-wallet/index.d.ts" />
 /// <reference path="@ijstech/eth-contract/index.d.ts" />
+/// <reference path="@scom/scom-token-list/index.d.ts" />
 /// <amd-module name="@scom/scom-governance-execute-proposal/interface.ts" />
 declare module "@scom/scom-governance-execute-proposal/interface.ts" {
     import { BigNumber } from "@ijstech/eth-wallet";
     import { INetworkConfig } from "@scom/scom-network-picker";
+    import { ITokenObject } from "@scom/scom-token-list";
     import { IWalletPlugin } from "@scom/scom-wallet-modal";
     export interface IGovernanceExecuteProposal extends IGovernanceVotingFlow {
         chainId: number;
@@ -18,6 +20,7 @@ declare module "@scom/scom-governance-execute-proposal/interface.ts" {
         isFlow?: boolean;
         fromToken?: string;
         toToken?: string;
+        customTokens?: Record<number, ITokenObject[]>;
     }
     export interface IExecuteParam {
         cmd: string;
@@ -179,8 +182,9 @@ declare module "@scom/scom-governance-execute-proposal/formSchema.ts" {
 }
 /// <amd-module name="@scom/scom-governance-execute-proposal/api.ts" />
 declare module "@scom/scom-governance-execute-proposal/api.ts" {
+    import { ITokenObject } from "@scom/scom-token-list";
     import { State } from "@scom/scom-governance-execute-proposal/store/index.ts";
-    export function getVotingResult(state: State, votingAddress: string): Promise<any>;
+    export function getVotingResult(state: State, votingAddress: string, customTokens?: Record<number, ITokenObject[]>): Promise<any>;
     export function execute(votingAddress: string): Promise<import("@ijstech/eth-contract").TransactionReceipt>;
 }
 /// <amd-module name="@scom/scom-governance-execute-proposal/flow/initialSetup.tsx" />
@@ -312,6 +316,7 @@ declare module "@scom/scom-governance-execute-proposal" {
                 isFlow?: boolean;
                 fromToken?: string;
                 toToken?: string;
+                customTokens?: Record<number, import("@scom/scom-token-list").ITokenObject[]>;
             }>;
             setData: (properties: IGovernanceExecuteProposal, linkParams?: Record<string, any>) => Promise<void>;
             getTag: any;

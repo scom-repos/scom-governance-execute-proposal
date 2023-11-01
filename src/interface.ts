@@ -1,5 +1,6 @@
 import { BigNumber } from "@ijstech/eth-wallet";
 import { INetworkConfig } from "@scom/scom-network-picker";
+import { ITokenObject } from "@scom/scom-token-list";
 import { IWalletPlugin } from "@scom/scom-wallet-modal";
 
 export interface IGovernanceExecuteProposal extends IGovernanceVotingFlow {
@@ -15,6 +16,7 @@ interface IGovernanceVotingFlow {
     isFlow?: boolean;                                                                
     fromToken?: string;
     toToken?: string;
+    customTokens?: Record<number, ITokenObject[]>;
 }
 
 export interface IExecuteParam {
