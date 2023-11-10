@@ -480,43 +480,41 @@ export default class ScomGovernanceExecuteProposal extends Module {
 
             const receipt = await execute(votingAddress);
 
-            if (receipt) {
-                if (this.state.handleUpdateStepStatus) {
-                    this.state.handleUpdateStepStatus({
-                        status: "Completed",
-                        color: Theme.colors.success.main
-                    });
-                }
-                if (this.state.handleAddTransactions && receipt) {
-                    const timestamp = await this.state.getRpcWallet().getBlockTimestamp(receipt.blockNumber.toString());
-                    const transactionsInfoArr = [
-                        {
-                            desc: 'Execute proposal',
-                            chainId: chainId,
-                            fromToken: null,
-                            toToken: null,
-                            fromTokenAmount: '',
-                            toTokenAmount: '-',
-                            hash: receipt.transactionHash,
-                            timestamp,
-                            value: votingAddress
-                        }
-                    ];
-                    this.state.handleAddTransactions({
-                        list: transactionsInfoArr
-                    });
-                }
-                if (this.state.handleJumpToStep) {
-                    this.state.handleJumpToStep({
-                        widgetName: 'scom-group-queue-pair',
-                        executionProperties: {
-                            fromToken: this._data.fromToken || '',
-                            toToken: this._data.toToken || '',
-                            customTokens: this._data.customTokens,
-                            isFlow: true
-                        }
-                    })
-                }
+            if (this.state.handleUpdateStepStatus) {
+                this.state.handleUpdateStepStatus({
+                    status: "Completed",
+                    color: Theme.colors.success.main
+                });
+            }
+            if (this.state.handleAddTransactions && receipt) {
+                const timestamp = await this.state.getRpcWallet().getBlockTimestamp(receipt.blockNumber.toString());
+                const transactionsInfoArr = [
+                    {
+                        desc: 'Execute proposal',
+                        chainId: chainId,
+                        fromToken: null,
+                        toToken: null,
+                        fromTokenAmount: '',
+                        toTokenAmount: '-',
+                        hash: receipt.transactionHash,
+                        timestamp,
+                        value: votingAddress
+                    }
+                ];
+                this.state.handleAddTransactions({
+                    list: transactionsInfoArr
+                });
+            }
+            if (this.state.handleJumpToStep) {
+                this.state.handleJumpToStep({
+                    widgetName: 'scom-group-queue-pair',
+                    executionProperties: {
+                        fromToken: this._data.fromToken || '',
+                        toToken: this._data.toToken || '',
+                        customTokens: this._data.customTokens,
+                        isFlow: true
+                    }
+                })
             }
         } catch (err) {
             this.showResultMessage('error', err);
